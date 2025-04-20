@@ -1,0 +1,22 @@
+"""
+PyNipe: A neuroimaging workflow library that builds upon Nipype's interfaces.
+
+PyNipe provides a more intuitive and debuggable execution model with support for parallel execution.
+"""
+
+__version__ = "0.1.0"
+
+from .core.context import TaskContext
+from .core.task import Task, TaskOutput
+from .core.workflow import Workflow
+from .executors.local import LocalExecutor
+from .visualization import create_execution_graph
+
+__all__ = [
+    "TaskContext",
+    "Task",
+    "TaskOutput",
+    "Workflow",
+    "LocalExecutor",
+    "create_execution_graph",
+]
