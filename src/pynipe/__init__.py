@@ -10,6 +10,7 @@ from .core.context import TaskContext
 from .core.task import Task, TaskOutput
 from .core.workflow import Workflow
 from .executors.local import LocalExecutor
+from .executors.serial import SerialExecutor
 from .visualization import create_execution_graph
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "TaskOutput",
     "Workflow",
     "LocalExecutor",
+    "SerialExecutor",
     "create_execution_graph",
 ]

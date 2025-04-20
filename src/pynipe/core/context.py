@@ -2,9 +2,9 @@
 
 import time
 import logging
-from typing import Dict, Any, Optional, TypeVar, Generic
+from typing import Dict, Any, Optional, TypeVar, Generic, cast, Callable, List
 
-from .task import Task
+from .task import Task, OutputProxy, TaskOutput
 from .thread_local import get_current_workflow, set_current_task
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class TaskContext:
             The task context instance
         """
         self.start_time = time.time()
-        logger.info(f"Starting task: {self.name}")
+        logger.info(f"Creating task: {self.name}")
         
         # Create actual task
         self.task = Task(self.name, resources=self.resources)
@@ -79,23 +79,79 @@ class TaskContext:
         if self.task is None:
             return False
             
-        self.task.end_time = time.time()
-        if self.start_time is not None:
-            self.task.elapsed_time = self.task.end_time - self.start_time
+        # Record end time for context timing
+        logger.info(f"Task {self.name} Created")
         
-        # Update task status
+        # Update task status if an exception occurred
         if exc_type:
             self.task.status = "FAILED"
             self.task.error = exc_val
             logger.error(f"Task {self.name} failed: {exc_val}")
-        else:
-            if self.task.status == "PENDING":
-                # If the task wasn't explicitly run, mark it as complete
-                self.task.status = "COMPLETE"
-            logger.info(f"Completed task: {self.name} in {self.task.elapsed_time:.2f}s")
         
         # Reset thread-local task
         set_current_task(None)
         
         # Return False to propagate exceptions
         return False
+    
+    def set_interface(self, interface: Any) -> None:
+        """
+        Set the nipype interface for this task.
+        
+        Parameters:
+        -----------
+        interface : nipype.Interface
+            The interface to use for this task
+        """
+        if self.task is None:
+            raise ValueError("Task not initialized")
+        
+        self.task.interface = interface
+    
+    def configure_interface(self, **kwargs) -> None:
+        """
+        Configure the interface with input parameters.
+        
+        Parameters:
+        -----------
+        **kwargs : dict
+            Input parameters for the interface
+        """
+        if self.task is None:
+            raise ValueError("Task not initialized")
+        
+        self.task.configure_interface(**kwargs)
+    
+    def set_python_function(self, func: Callable, outputs: List[str], *args, **kwargs) -> None:
+        """
+        Set a Python function to be executed by this task.
+        
+        Parameters:
+        -----------
+        func : callable
+            The Python function to execute
+        outputs : list
+            List of output names that will be produced by the function
+        *args : tuple
+            Positional arguments to pass to the function
+        **kwargs : dict
+            Keyword arguments to pass to the function
+        """
+        if self.task is None:
+            raise ValueError("Task not initialized")
+        
+        self.task.set_python_function(func, outputs, *args, **kwargs)
+    
+    def get_output_proxy(self) -> OutputProxy:
+        """
+        Get a proxy for the outputs that will be available after execution.
+        
+        Returns:
+        --------
+        OutputProxy
+            Proxy for the task's outputs
+        """
+        if self.task is None:
+            raise ValueError("Task not initialized")
+        
+        return self.task.get_output_proxy()

@@ -35,6 +35,25 @@ class Workflow:
             Task to add
         """
         self.tasks.append(task)
+    
+    def get_task_by_name(self, name: str) -> Optional[Task]:
+        """
+        Get a task by its name.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the task to find
+            
+        Returns:
+        --------
+        Optional[Task]
+            The task with the given name, or None if not found
+        """
+        for task in self.tasks:
+            if task.name == name:
+                return task
+        return None
         
     def add_function(self, function: Callable, inputs: Optional[Dict[str, Any]] = None, name: Optional[str] = None) -> None:
         """

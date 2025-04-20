@@ -7,7 +7,7 @@ This example demonstrates the basic usage of PyNipe with a simple brain extracti
 import os
 import logging
 from nipype.interfaces import fsl
-from pynipe import TaskContext, Workflow, LocalExecutor, create_execution_graph
+from pynipe import TaskContext, Workflow, LocalExecutor, SerialExecutor, create_execution_graph
 
 # Configure logging
 logging.basicConfig(
@@ -44,20 +44,23 @@ def process_subject(subject_id, anat_file, output_dir):
     
     # Brain extraction task
     with TaskContext("Brain Extraction") as ctx:
+        # Create and configure the interface
         bet = fsl.BET()
-        bet.inputs.in_file = anat_file
-        bet.inputs.out_file = os.path.join(subject_dir, f"{subject_id}_brain.nii.gz")
-        bet.inputs.mask = True
-        bet.inputs.frac = 0.3
+        ctx.set_interface(bet)
         
-        result = bet.run()
-        brain_file = result.outputs.out_file
-        mask_file = result.outputs.mask_file
-    
-    # Print task information
-    print(f"Task status: {ctx.task.status}")
-    print(f"Execution time: {ctx.task.elapsed_time:.2f}s")
-    print(f"Command: {ctx.task.command}")
+        # Configure the interface parameters
+        ctx.configure_interface(
+            in_file=anat_file,
+            out_file=os.path.join(subject_dir, f"{subject_id}_brain.nii.gz"),
+            mask=True,
+            frac=0.3
+        )
+        
+        # Get output proxies for later use
+        outputs = ctx.get_output_proxy()
+        # We're using TaskOutput objects that will be resolved during execution
+        brain_file = outputs.outputs.out_file  # type: ignore
+        mask_file = outputs.outputs.mask_file  # type: ignore
     
     return {
         "brain": brain_file,
@@ -81,9 +84,27 @@ def main():
         }
     )
     
-    # Run the workflow with parallel execution (2 concurrent tasks)
-    executor = LocalExecutor(max_workers=2)
+    # Choose an executor based on your needs:
+    
+    # Option 1: Parallel execution with multiple workers
+    # executor = LocalExecutor(max_workers=2)
+    
+    # Option 2: Serial execution (one task at a time)
+    executor = SerialExecutor()
+    
+    # Run the workflow
     results = workflow.run(executor=executor)
+    
+    # After execution, we can access the task information
+    for task_name, task_outputs in results["tasks"].items():
+        task = workflow.get_task_by_name(task_name)
+        if task:
+            print(f"Task: {task_name}")
+            print(f"Status: {task.status}")
+            print(f"Execution time: {task.elapsed_time:.2f}s")
+            print(f"Command: {task.command}")
+            print(f"Outputs: {task_outputs}")
+            print()
     
     # Create and save execution graph
     graph = create_execution_graph(results)

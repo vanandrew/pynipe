@@ -26,6 +26,29 @@ class TestWorkflow:
         
         assert len(workflow.tasks) == 1
         assert workflow.tasks[0] == task
+    
+    def test_get_task_by_name(self):
+        """Test getting a task by name."""
+        workflow = Workflow("test_workflow")
+        
+        # Add multiple tasks
+        task1 = Task("task1")
+        task2 = Task("task2")
+        task3 = Task("task3")
+        
+        workflow.add_task(task1)
+        workflow.add_task(task2)
+        workflow.add_task(task3)
+        
+        # Get task by name
+        found_task = workflow.get_task_by_name("task2")
+        
+        # Verify correct task was found
+        assert found_task == task2
+        
+        # Test non-existent task
+        not_found = workflow.get_task_by_name("non_existent")
+        assert not_found is None
         
     def test_add_function(self):
         """Test adding a function to the workflow."""

@@ -127,3 +127,6 @@ examples/output/
 *.nii.gz
 *.img
 *.hdr
+
+# macOS
+.DS_Store

@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from pynipe.core.context import TaskContext
-from pynipe.core.task import Task
+from pynipe.core.task import Task, OutputProxy, TaskOutput
 from pynipe.core.thread_local import get_current_task, get_current_workflow
 
 
@@ -21,8 +21,9 @@ class TestTaskContext:
             
         # After exit
         assert get_current_task() is None
-        assert ctx.task.status == "COMPLETE"
-        assert ctx.task.elapsed_time is not None
+        # Status should not be automatically set to COMPLETE in the new design
+        assert ctx.task is not None
+        assert ctx.task.status == "PENDING"
         
     def test_workflow_registration(self):
         """Test registration with current workflow."""
@@ -48,6 +49,7 @@ class TestTaskContext:
             pass
             
         # Verify task status
+        assert ctx.task is not None
         assert ctx.task.status == "FAILED"
         assert ctx.task.error is not None
         assert str(ctx.task.error) == "Test error"
@@ -56,4 +58,63 @@ class TestTaskContext:
         """Test resource specification."""
         resources = {"cpu": 4, "memory": "8GB"}
         with TaskContext("test_context", resources=resources) as ctx:
+            assert ctx.task is not None
             assert ctx.task.resources == resources
+    
+    def test_set_interface(self):
+        """Test setting interface."""
+        mock_interface = MagicMock()
+        
+        with TaskContext("test_context") as ctx:
+            assert ctx.task is not None
+            ctx.set_interface(mock_interface)
+            
+            assert ctx.task.interface == mock_interface
+    
+    def test_configure_interface(self):
+        """Test configuring interface."""
+        mock_interface = MagicMock()
+        
+        with TaskContext("test_context") as ctx:
+            ctx.set_interface(mock_interface)
+            
+            # Patch the task's configure_interface method
+            with patch.object(ctx.task, 'configure_interface') as mock_configure:
+                ctx.configure_interface(input1="value1", input2="value2")
+                
+                # Verify task's configure_interface was called with correct args
+                mock_configure.assert_called_once_with(input1="value1", input2="value2")
+    
+    def test_get_output_proxy(self):
+        """Test getting output proxy."""
+        mock_interface = MagicMock()
+        mock_output_spec = MagicMock()
+        mock_output_spec.get.return_value = {"output1": None, "output2": None}
+        mock_interface.output_spec.return_value = mock_output_spec
+        
+        with TaskContext("test_context") as ctx:
+            ctx.set_interface(mock_interface)
+            
+            # Patch the task's get_output_proxy method
+            with patch.object(ctx.task, 'get_output_proxy') as mock_get_proxy:
+                mock_proxy = MagicMock(spec=OutputProxy)
+                mock_get_proxy.return_value = mock_proxy
+                
+                proxy = ctx.get_output_proxy()
+                
+                # Verify task's get_output_proxy was called
+                mock_get_proxy.assert_called_once()
+                assert proxy == mock_proxy
+    
+    def test_task_not_initialized(self):
+        """Test methods when task is not initialized."""
+        ctx = TaskContext("test_context")
+        
+        with pytest.raises(ValueError, match="Task not initialized"):
+            ctx.set_interface(MagicMock())
+            
+        with pytest.raises(ValueError, match="Task not initialized"):
+            ctx.configure_interface(input1="value1")
+            
+        with pytest.raises(ValueError, match="Task not initialized"):
+            ctx.get_output_proxy()

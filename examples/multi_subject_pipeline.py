@@ -1,13 +1,16 @@
 """
 Multi-subject example of using PyNipe to create a neuroimaging pipeline.
 
-This example demonstrates how to process multiple subjects in parallel using PyNipe.
+This example demonstrates how to process multiple subjects in parallel using PyNipe,
+including parallel tasks, non-nipype Python tasks, and dependency tracking.
 """
 
 import os
 import logging
-from nipype.interfaces import fsl
-from pynipe import TaskContext, Workflow, LocalExecutor, create_execution_graph
+import numpy as np
+import nibabel as nib
+from nipype.interfaces import fsl, ants
+from pynipe import TaskContext, Workflow, LocalExecutor, SerialExecutor, create_execution_graph
 
 # Configure logging
 logging.basicConfig(
@@ -16,7 +19,7 @@ logging.basicConfig(
 )
 
 # Define the output directory
-output_dir = os.path.join(os.path.dirname(__file__), "output")
+output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "output"))
 os.makedirs(output_dir, exist_ok=True)
 
 
@@ -44,33 +47,108 @@ def preprocess_structural(subject_id, anat_file, output_dir):
     
     # Brain extraction task
     with TaskContext("Brain Extraction") as ctx:
+        # Create and configure the interface
         bet = fsl.BET()
-        bet.inputs.in_file = anat_file
-        bet.inputs.out_file = os.path.join(subject_dir, f"{subject_id}_brain.nii.gz")
-        bet.inputs.mask = True
-        bet.inputs.frac = 0.3
+        ctx.set_interface(bet)
         
-        result = bet.run()
-        brain_file = result.outputs.out_file
-        mask_file = result.outputs.mask_file
+        # Configure the interface parameters
+        ctx.configure_interface(
+            in_file=anat_file,
+            out_file=os.path.join(subject_dir, f"{subject_id}_brain.nii.gz"),
+            mask=True,
+            frac=0.3
+        )
+        
+        # Get output proxies for later use
+        outputs = ctx.get_output_proxy()
+        brain_file = outputs.outputs.out_file  # type: ignore
+        mask_file = outputs.outputs.mask_file  # type: ignore
     
-    # Segmentation task (dependencies auto-detected)
-    with TaskContext("Segmentation") as ctx:
-        fast = fsl.FAST()
-        fast.inputs.in_files = brain_file  # brain_file creates dependency
-        fast.inputs.out_basename = os.path.join(subject_dir, f"{subject_id}_seg")
+    # Bias field correction task (runs in parallel with brain extraction)
+    with TaskContext("Bias Field Correction") as ctx:
+        # Create and configure the interface
+        bias_correct = ants.N4BiasFieldCorrection()
+        ctx.set_interface(bias_correct)
         
-        result = fast.run()
-        seg_files = result.outputs.tissue_class_files
+        # Configure the interface parameters
+        ctx.configure_interface(
+            input_image=anat_file,  # Original anatomical image, no dependency on brain extraction
+            output_image=os.path.join(subject_dir, f"{subject_id}_bias_corrected.nii.gz"),
+            dimension=3,
+            shrink_factor=4,
+            n_iterations=[50, 50, 30, 20]
+        )
         
-    # Print task information
-    print(f"Subject {subject_id} processing complete")
-    print(f"Brain extraction time: {ctx.task.elapsed_time:.2f}s")
+        # Get output proxies for later use
+        outputs = ctx.get_output_proxy()
+        bias_corrected_file = outputs.outputs.output_image  # type: ignore
+    
+    # Threshold the brain mask using fslmaths (depends on brain extraction)
+    with TaskContext("Threshold Mask") as ctx:
+        # Create and configure the interface
+        threshold = fsl.maths.Threshold()
+        ctx.set_interface(threshold)
+        
+        # Configure the interface parameters - mask_file is a TaskOutput that creates dependency
+        ctx.configure_interface(
+            in_file=mask_file,
+            thresh=0.5,
+            out_file=os.path.join(subject_dir, f"{subject_id}_mask_thresh.nii.gz")
+        )
+        
+        # Get output proxies for later use
+        outputs = ctx.get_output_proxy()
+        thresholded_mask = outputs.outputs.out_file  # type: ignore
+    
+    # Pure Python task to calculate brain volume (depends on thresholded mask)
+    volume_report_file = os.path.join(subject_dir, f"{subject_id}_brain_volume.txt")
+    
+    with TaskContext("Calculate Brain Volume") as ctx:
+        # Define the function that will be executed by the executor
+        def calculate_brain_volume(mask_file, output_file):
+            """Calculate brain volume from a binary mask."""
+            # Load the mask file
+            mask_img = nib.load(mask_file)  # type: ignore
+            mask_data = mask_img.get_fdata()  # type: ignore
+            
+            # Get voxel dimensions
+            voxel_dims = mask_img.header.get_zooms()  # type: ignore
+            voxel_volume = voxel_dims[0] * voxel_dims[1] * voxel_dims[2]
+            
+            # Count non-zero voxels and calculate volume
+            voxel_count = np.count_nonzero(mask_data)
+            volume_mm3 = voxel_count * voxel_volume
+            volume_cm3 = volume_mm3 / 1000.0
+            
+            # Save results to a text file
+            with open(output_file, 'w') as f:
+                f.write(f"Brain Volume Analysis for {subject_id}\n")
+                f.write(f"Voxel dimensions (mm): {voxel_dims}\n")
+                f.write(f"Voxel volume (mm³): {voxel_volume:.2f}\n")
+                f.write(f"Voxel count: {voxel_count}\n")
+                f.write(f"Brain volume (mm³): {volume_mm3:.2f}\n")
+                f.write(f"Brain volume (cm³): {volume_cm3:.2f}\n")
+            
+            return output_file
+        
+        # Set the Python function to be executed by this task
+        ctx.set_python_function(
+            calculate_brain_volume,  # Function to execute
+            ["output_file"],         # Output names
+            thresholded_mask,        # First argument (mask_file)
+            volume_report_file       # Second argument (output_file)
+        )
+        
+        # Get output proxy
+        outputs = ctx.get_output_proxy()
+        volume_report = outputs.outputs.output_file  # type: ignore
     
     return {
         "brain": brain_file,
         "mask": mask_file,
-        "segmentation": seg_files
+        "bias_corrected": bias_corrected_file,
+        "thresholded_mask": thresholded_mask,
+        "volume_report": volume_report
     }
 
 
@@ -82,9 +160,9 @@ def main():
     # Define subjects
     # Note: In a real scenario, you would use actual data files
     subjects = [
-        {"id": "sub-01", "anat": "/path/to/sub-01/anat.nii.gz"},
-        {"id": "sub-02", "anat": "/path/to/sub-02/anat.nii.gz"},
-        {"id": "sub-03", "anat": "/path/to/sub-03/anat.nii.gz"},
+        {"id": "sub-01", "anat": "/Users/andrew.van/Data/temp/sub-PFM03_ses-01_run-01_desc-preproc_T1w.nii.gz"},
+        # {"id": "sub-02", "anat": "/path/to/sub-02/anat.nii.gz"},
+        # {"id": "sub-03", "anat": "/path/to/sub-03/anat.nii.gz"},
     ]
     
     # Add processing for each subject
@@ -99,9 +177,26 @@ def main():
             name=f"preprocess_{subject['id']}"
         )
     
-    # Run the workflow with parallel execution (4 concurrent tasks)
+    # Choose an executor based on your needs:
+    
+    # Option 1: Parallel execution with multiple workers
     executor = LocalExecutor(max_workers=4)
+    
+    # Option 2: Serial execution (one task at a time)
+    # executor = SerialExecutor()
+    
+    # Run the workflow
     results = workflow.run(executor=executor)
+    
+    # After execution, we can access the task information
+    for task_name, task_outputs in results["tasks"].items():
+        task = workflow.get_task_by_name(task_name)
+        if task:
+            print(f"Task: {task_name}")
+            print(f"Status: {task.status}")
+            print(f"Execution time: {task.elapsed_time:.2f}s")
+            print(f"Command: {task.command}")
+            print()
     
     # Create and save execution graph
     graph = create_execution_graph(results)
@@ -112,7 +207,9 @@ def main():
         subject_id = subject["id"]
         subject_result = results["functions"][f"preprocess_{subject_id}"]
         print(f"Subject {subject_id} brain: {subject_result['brain']}")
-        print(f"Subject {subject_id} segmentation: {subject_result['segmentation']}")
+        print(f"Subject {subject_id} bias corrected: {subject_result['bias_corrected']}")
+        print(f"Subject {subject_id} brain volume: {subject_result['volume_report']}")
+        print()
     
     print(f"Results saved to {output_dir}")
 

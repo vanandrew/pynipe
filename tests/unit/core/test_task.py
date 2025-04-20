@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from pynipe.core.task import Task, TaskOutput
+from pynipe.core.task import Task, TaskOutput, OutputProxy
 
 
 class TestTask:
@@ -30,6 +30,60 @@ class TestTask:
         assert task2.inputs["input1"].task == task1
         assert task2.inputs["input1"].output_name == "output1"
         assert task1 in task2.dependencies
+    
+    def test_configure_interface(self):
+        """Test configuring interface with parameters."""
+        # Setup mock interface
+        mock_interface = MagicMock()
+        
+        # Create task with mock interface
+        task = Task("test_task", interface=mock_interface)
+        
+        # Configure interface
+        task.configure_interface(input1="value1", input2="value2")
+        
+        # Verify inputs were stored
+        assert task.inputs == {"input1": "value1", "input2": "value2"}
+    
+    def test_configure_interface_with_task_output(self):
+        """Test configuring interface with TaskOutput."""
+        # Create source task
+        source_task = Task("source")
+        
+        # Create dependent task
+        dependent_task = Task("dependent", interface=MagicMock())
+        
+        # Create TaskOutput
+        task_output = TaskOutput(source_task, "output1")
+        
+        # Configure interface with TaskOutput
+        dependent_task.configure_interface(input1=task_output)
+        
+        # Verify dependency was added
+        assert source_task in dependent_task.dependencies
+        assert dependent_task.inputs["input1"] == task_output
+    
+    def test_get_output_proxy(self):
+        """Test getting output proxy."""
+        # Setup mock interface
+        mock_interface = MagicMock()
+        mock_output_spec = MagicMock()
+        mock_output_spec.get.return_value = {"output1": None, "output2": None}
+        mock_interface.output_spec.return_value = mock_output_spec
+        
+        # Create task with mock interface
+        task = Task("test_task", interface=mock_interface)
+        
+        # Get output proxy
+        proxy = task.get_output_proxy()
+        
+        # Verify proxy
+        assert isinstance(proxy, OutputProxy)
+        assert proxy.task == task
+        assert hasattr(proxy.outputs, "output1")
+        assert hasattr(proxy.outputs, "output2")
+        assert isinstance(proxy.outputs.output1, TaskOutput)  # type: ignore
+        assert isinstance(proxy.outputs.output2, TaskOutput)  # type: ignore
         
     @patch("nipype.interfaces.base.Interface")
     def test_run_success(self, mock_interface_class):
@@ -42,7 +96,9 @@ class TestTask:
         mock_result.outputs.output1 = "output_value"
         
         mock_interface.run.return_value = mock_result
-        mock_interface.output_spec().get.return_value = {"output1": None}
+        mock_output_spec = MagicMock()
+        mock_output_spec.get.return_value = {"output1": None}
+        mock_interface.output_spec.return_value = mock_output_spec
         
         # Create task with mock interface
         task = Task("test_task", interface=mock_interface)
@@ -115,3 +171,60 @@ class TestTask:
         # Attempt to resolve inputs and expect error
         with pytest.raises(ValueError, match="Dependency source not complete"):
             dependent_task._resolve_inputs()
+
+
+class TestTaskOutput:
+    """Tests for the TaskOutput class."""
+    
+    def test_init(self):
+        """Test TaskOutput initialization."""
+        task = Task("test_task")
+        output = TaskOutput(task, "output1")
+        
+        assert output.task == task
+        assert output.output_name == "output1"
+        
+    def test_repr(self):
+        """Test TaskOutput string representation."""
+        task = Task("test_task")
+        output = TaskOutput(task, "output1")
+        
+        assert repr(output) == "TaskOutput(task=test_task, output=output1)"
+
+
+class TestOutputProxy:
+    """Tests for the OutputProxy class."""
+    
+    def test_init_with_interface(self):
+        """Test OutputProxy initialization with interface."""
+        # Setup mock interface
+        mock_interface = MagicMock()
+        mock_output_spec = MagicMock()
+        mock_output_spec.get.return_value = {"output1": None, "output2": None}
+        mock_interface.output_spec.return_value = mock_output_spec
+        
+        # Create task with mock interface
+        task = Task("test_task", interface=mock_interface)
+        
+        # Create output proxy
+        proxy = OutputProxy(task)
+        
+        # Verify proxy
+        assert proxy.task == task
+        assert hasattr(proxy.outputs, "output1")
+        assert hasattr(proxy.outputs, "output2")
+        assert isinstance(proxy.outputs.output1, TaskOutput)  # type: ignore
+        assert isinstance(proxy.outputs.output2, TaskOutput)  # type: ignore
+    
+    def test_init_without_interface(self):
+        """Test OutputProxy initialization without interface."""
+        # Create task without interface
+        task = Task("test_task")
+        
+        # Create output proxy
+        proxy = OutputProxy(task)
+        
+        # Verify proxy
+        assert proxy.task == task
+        # No outputs should be created
+        assert not hasattr(proxy.outputs, "output1")
