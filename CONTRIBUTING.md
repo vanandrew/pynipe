@@ -52,9 +52,9 @@ All pull requests must pass the CI checks before they can be merged.
 
 We use pre-commit hooks to ensure code quality. To set up pre-commit:
 
-1. Install pre-commit:
+1. Install development dependencies and pre-commit:
    ```bash
-   uv pip install pre-commit
+   uv pip install -e ".[dev]"
    ```
 
 2. Install the git hooks:

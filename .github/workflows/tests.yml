@@ -34,11 +34,13 @@ jobs:
         uv venv
         source .venv/bin/activate
         uv pip install -e ".[dev]"
+        # Ensure pytest and pytest-cov are installed
+        uv pip install pytest pytest-cov
 
     - name: Run tests with coverage
       run: |
         source .venv/bin/activate
-        pytest --cov=src/pynipe --cov-report=xml tests/
+        python -m pytest --cov=src/pynipe --cov-report=xml tests/
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -67,12 +69,13 @@ jobs:
       run: |
         uv venv
         source .venv/bin/activate
-        uv pip install pre-commit
+        uv pip install -e ".[dev]"
+        uv pip install pre-commit black isort ruff
 
     - name: Run pre-commit hooks
       run: |
         source .venv/bin/activate
-        pre-commit run --all-files
+        pre-commit run --all-files --show-diff-on-failure
 
   build:
     runs-on: ubuntu-latest

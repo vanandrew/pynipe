@@ -23,7 +23,7 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "black>=25.1.0",
     "hatch-vcs>=0.3.0",
@@ -57,7 +57,7 @@ exclude = '''
 '''
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 select = ["E", "F", "I", "W", "N", "B", "C4", "UP", "S", "BLE", "A", "C", "T", "PT", "RET", "SIM"]
 ignore = ["E203", "E501"]
