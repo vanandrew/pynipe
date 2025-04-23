@@ -28,6 +28,7 @@ dev = [
     "black>=25.1.0",
     "hatch-vcs>=0.3.0",
     "isort>=6.0.1",
+    "pre-commit>=3.6.0",
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
     "ruff>=0.11.6",
@@ -36,3 +37,39 @@ visualization = [
     "matplotlib>=3.10.1",
     "plotly>=6.0.1",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "I", "W", "N", "B", "C4", "UP", "S", "BLE", "A", "C", "T", "PT", "RET", "SIM"]
+ignore = ["E203", "E501"]
+exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "node_modules",
+]
+
+[tool.ruff.isort]
+known-first-party = ["pynipe"]

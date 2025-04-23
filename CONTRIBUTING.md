@@ -48,6 +48,31 @@ All pull requests must pass the CI checks before they can be merged.
 - Keep functions and methods focused on a single responsibility
 - Write tests for new functionality
 
+## Pre-commit Hooks
+
+We use pre-commit hooks to ensure code quality. To set up pre-commit:
+
+1. Install pre-commit:
+   ```bash
+   uv pip install pre-commit
+   ```
+
+2. Install the git hooks:
+   ```bash
+   pre-commit install
+   ```
+
+3. The hooks will run automatically on each commit. They include:
+   - black: Code formatting
+   - isort: Import sorting
+   - ruff: Linting
+   - Various file checks (trailing whitespace, YAML validation, etc.)
+
+You can also run the hooks manually on all files:
+```bash
+pre-commit run --all-files
+```
+
 ## Testing
 
 - Write unit tests for all new functionality
