@@ -92,8 +92,11 @@ class TestWorkflow:
         # Verify function was executed
         assert results["functions"]["test_func"] == 3
 
-        # Verify executor was called with tasks
-        mock_executor.execute.assert_called_once_with([task])
+        # Verify executor was called with tasks and progress_callback
+        mock_executor.execute.assert_called_once()
+        args, kwargs = mock_executor.execute.call_args
+        assert args[0] == [task]
+        assert "progress_callback" in kwargs
 
         # Verify task results were returned
         assert results["tasks"] == {"task1": {"output1": "value1"}}
