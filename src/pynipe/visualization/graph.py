@@ -1,22 +1,21 @@
 """Execution graph visualization for PyNipe."""
 
-import logging
-import json
 import html
-from typing import Dict, Any, List, Optional, Set, Tuple
+import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def create_execution_graph(workflow_results: Dict[str, Any]) -> 'ExecutionGraph':
+def create_execution_graph(workflow_results: dict[str, Any]) -> "ExecutionGraph":
     """
     Create an execution graph from workflow results.
-    
+
     Parameters:
     -----------
     workflow_results : dict
         Results from a workflow execution
-        
+
     Returns:
     --------
     ExecutionGraph
@@ -27,22 +26,22 @@ def create_execution_graph(workflow_results: Dict[str, Any]) -> 'ExecutionGraph'
 
 class ExecutionGraph:
     """Execution graph visualization using mermaid.js."""
-    
-    def __init__(self, workflow_results: Dict[str, Any]):
+
+    def __init__(self, workflow_results: dict[str, Any]):
         """
         Initialize an execution graph.
-        
+
         Parameters:
         -----------
         workflow_results : dict
             Results from a workflow execution
         """
         self.workflow_results = workflow_results
-        
+
     def to_html(self, output_file: str) -> None:
         """
         Save the execution graph as an HTML file with mermaid.js visualization.
-        
+
         Parameters:
         -----------
         output_file : str
@@ -51,15 +50,16 @@ class ExecutionGraph:
         try:
             # Extract tasks and their dependencies
             tasks, dependencies = self._extract_tasks_and_dependencies()
-            
+
             # Generate mermaid diagram definition
             mermaid_diagram = self._generate_mermaid_diagram(tasks, dependencies)
-            
+
             # Generate task details for the sidebar
             task_details = self._generate_task_details(tasks)
-            
-            with open(output_file, 'w') as f:
-                f.write(f"""<!DOCTYPE html>
+
+            with open(output_file, "w") as f:
+                f.write(
+                    f"""<!DOCTYPE html>
 <html>
 <head>
     <title>PyNipe Execution Graph</title>
@@ -168,8 +168,8 @@ class ExecutionGraph:
 
     <script>
         // Initialize mermaid with a specific configuration
-        mermaid.initialize({{ 
-            startOnLoad: true, 
+        mermaid.initialize({{
+            startOnLoad: true,
             theme: 'default',
             securityLevel: 'loose',
             flowchart: {{
@@ -177,12 +177,12 @@ class ExecutionGraph:
                 curve: 'basis'
             }}
         }});
-        
+
         // Ensure mermaid renders after the page loads
         document.addEventListener('DOMContentLoaded', function() {{
             // Force mermaid to render
             mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-            
+
             // Add click handlers for collapsible sections
             var coll = document.getElementsByClassName("collapsible");
             for (var i = 0; i < coll.length; i++) {{
@@ -199,16 +199,19 @@ class ExecutionGraph:
         }});
     </script>
 </body>
-</html>""")
+</html>"""
+                )
             logger.info(f"Execution graph saved to {output_file}")
         except Exception as e:
             logger.error(f"Failed to save execution graph: {e}")
             raise
-    
-    def _extract_tasks_and_dependencies(self) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Set[str]]]:
+
+    def _extract_tasks_and_dependencies(
+        self,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, set[str]]]:
         """
         Extract tasks and their dependencies from workflow results.
-        
+
         Returns:
         --------
         tuple
@@ -218,85 +221,86 @@ class ExecutionGraph:
         """
         tasks = {}
         dependencies = {}
-        
+
         # Get workflow if available
-        workflow = self.workflow_results.get('workflow', None)
-        
+        workflow = self.workflow_results.get("workflow", None)
+
         # Extract tasks from workflow results
-        if 'tasks' in self.workflow_results:
-            task_results = self.workflow_results.get('tasks', {})
-            
+        if "tasks" in self.workflow_results:
+            task_results = self.workflow_results.get("tasks", {})
+
             for task_name, outputs in task_results.items():
                 # Get the task object from the workflow
                 task_obj = None
-                if workflow is not None and hasattr(workflow, 'get_task_by_name'):
+                if workflow is not None and hasattr(workflow, "get_task_by_name"):
                     task_obj = workflow.get_task_by_name(task_name)
-                
+
                 # Create task info
                 task_info = {
-                    'name': task_name,
-                    'status': 'COMPLETE',  # Default status
-                    'elapsed_time': None,
-                    'command': None,
-                    'outputs': outputs,
-                    'inputs': {}  # Add inputs dictionary
+                    "name": task_name,
+                    "status": "COMPLETE",  # Default status
+                    "elapsed_time": None,
+                    "command": None,
+                    "outputs": outputs,
+                    "inputs": {},  # Add inputs dictionary
                 }
-                
+
                 # Add additional info if task object is available
                 if task_obj is not None:
-                    task_info['status'] = getattr(task_obj, 'status', 'COMPLETE')
-                    task_info['elapsed_time'] = getattr(task_obj, 'elapsed_time', None)
-                    task_info['command'] = getattr(task_obj, 'command', None)
-                    
+                    task_info["status"] = getattr(task_obj, "status", "COMPLETE")
+                    task_info["elapsed_time"] = getattr(task_obj, "elapsed_time", None)
+                    task_info["command"] = getattr(task_obj, "command", None)
+
                     # Extract dependencies
-                    task_deps = getattr(task_obj, 'dependencies', set())
-                    dep_names = {dep.name for dep in task_deps if hasattr(dep, 'name')}
+                    task_deps = getattr(task_obj, "dependencies", set())
+                    dep_names = {dep.name for dep in task_deps if hasattr(dep, "name")}
                     dependencies[task_name] = dep_names
-                    
+
                     # Extract inputs
                     from ..core.task import TaskOutput
-                    for input_name, input_value in getattr(task_obj, 'inputs', {}).items():
+
+                    for input_name, input_value in getattr(task_obj, "inputs", {}).items():
                         if isinstance(input_value, TaskOutput):
                             # This is a dependency input (already shown as an edge)
-                            task_info['inputs'][input_name] = {
-                                'type': 'task_output',
-                                'task': input_value.task.name,
-                                'output': input_value.output_name
+                            task_info["inputs"][input_name] = {
+                                "type": "task_output",
+                                "task": input_value.task.name,
+                                "output": input_value.output_name,
                             }
                         else:
                             # This is an external input
-                            task_info['inputs'][input_name] = {
-                                'type': 'external',
-                                'value': str(input_value)
+                            task_info["inputs"][input_name] = {
+                                "type": "external",
+                                "value": str(input_value),
                             }
                 else:
                     dependencies[task_name] = set()
-                
+
                 tasks[task_name] = task_info
-        
+
         return tasks, dependencies
-    
-    def _generate_mermaid_diagram(self, tasks: Dict[str, Dict[str, Any]], dependencies: Dict[str, Set[str]]) -> str:
+
+    def _generate_mermaid_diagram(self, tasks: dict[str, dict[str, Any]], dependencies: dict[str, set[str]]) -> str:
         """
         Generate a mermaid.js flowchart diagram.
-        
+
         Parameters:
         -----------
         tasks : dict
             Dict mapping task names to task info
         dependencies : dict
             Dict mapping task names to sets of dependency task names
-            
+
         Returns:
         --------
         str
             Mermaid diagram definition
         """
         if not tasks:
-            return "graph TD\n    NoTasks[\"No tasks found\"]:::noTasks"
-        
+            return 'graph TD\n    NoTasks["No tasks found"]:::noTasks'
+
         lines = ["graph TD"]
-        
+
         # Define node styles based on status
         lines.append("    %% Node styles")
         lines.append("    classDef complete fill:#d4edda,stroke:#28a745,color:#155724")
@@ -305,26 +309,26 @@ class ExecutionGraph:
         lines.append("    classDef running fill:#cce5ff,stroke:#007bff,color:#004085")
         lines.append("    classDef noTasks fill:#f8f9fa,stroke:#6c757d,color:#6c757d")
         lines.append("    classDef input fill:#e2f0fb,stroke:#0d6efd,color:#0d6efd")
-        
+
         # Add nodes for each task
         lines.append("\n    %% Task nodes")
         for task_name, task_info in tasks.items():
             # Create a safe ID for the node
             node_id = f"task_{task_name.replace(' ', '_')}"
-            
+
             # Format elapsed time if available
             elapsed_time = ""
-            if task_info.get('elapsed_time') is not None:
+            if task_info.get("elapsed_time") is not None:
                 elapsed_time = f"<br/>{task_info['elapsed_time']:.2f}s"
-            
+
             # Create node label
             label = f"{task_name}{elapsed_time}"
-            
+
             # Add node definition
             lines.append(f"    {node_id}[\"{label}\"]:::{task_info['status'].lower()}")
-        
+
         # Input nodes removed as per user request - inputs are only shown in the sidebar
-        
+
         # Add edges for dependencies
         if dependencies:
             lines.append("\n    %% Dependencies")
@@ -333,18 +337,18 @@ class ExecutionGraph:
                 for dep in deps:
                     dep_id = f"task_{dep.replace(' ', '_')}"
                     lines.append(f"    {dep_id} --> {task_id}")
-        
+
         return "\n".join(lines)
-    
-    def _generate_task_details(self, tasks: Dict[str, Dict[str, Any]]) -> str:
+
+    def _generate_task_details(self, tasks: dict[str, dict[str, Any]]) -> str:
         """
         Generate HTML for task details sidebar.
-        
+
         Parameters:
         -----------
         tasks : dict
             Dict mapping task names to task info
-            
+
         Returns:
         --------
         str
@@ -352,14 +356,15 @@ class ExecutionGraph:
         """
         if not tasks:
             return "<p class='no-tasks'>No tasks found in workflow results.</p>"
-        
+
         html_parts = []
-        
+
         for task_name, task_info in tasks.items():
-            status = task_info.get('status', 'COMPLETE')
+            status = task_info.get("status", "COMPLETE")
             status_class = f"status-{status.lower()}"
-            
-            html_parts.append(f"""
+
+            html_parts.append(
+                f"""
         <div class="task-card" id="details-{task_name.replace(' ', '_')}">
             <div class="task-header">
                 {html.escape(task_name)}
@@ -367,72 +372,93 @@ class ExecutionGraph:
             </div>
             <div class="task-property">
                 <span class="property-name">Status:</span> {status}
-            </div>""")
-            
-            if task_info.get('elapsed_time') is not None:
-                html_parts.append(f"""
+            </div>"""
+            )
+
+            if task_info.get("elapsed_time") is not None:
+                html_parts.append(
+                    f"""
             <div class="task-property">
                 <span class="property-name">Execution Time:</span> {task_info['elapsed_time']:.2f}s
-            </div>""")
-            
-            if task_info.get('command'):
-                html_parts.append(f"""
+            </div>"""
+                )
+
+            if task_info.get("command"):
+                html_parts.append(
+                    f"""
             <div class="task-property">
                 <span class="property-name">Command:</span>
                 <div class="collapsible">Show/Hide</div>
                 <div class="content">
                     <pre>{html.escape(task_info['command'])}</pre>
                 </div>
-            </div>""")
-            
+            </div>"""
+                )
+
             # Add inputs section
-            if task_info.get('inputs'):
-                inputs = task_info['inputs']
-                html_parts.append(f"""
+            if task_info.get("inputs"):
+                inputs = task_info["inputs"]
+                html_parts.append(
+                    f"""
             <div class="task-property">
                 <span class="property-name">Inputs:</span> {len(inputs)} items
                 <div class="collapsible">Show/Hide</div>
                 <div class="content">
-                    <ul class="output-list">""")
-                
+                    <ul class="output-list">"""
+                )
+
                 for input_name, input_info in inputs.items():
-                    if input_info['type'] == 'external':
-                        value_str = input_info['value']
+                    if input_info["type"] == "external":
+                        value_str = input_info["value"]
                         if len(value_str) > 100:
                             value_str = value_str[:100] + "..."
-                        html_parts.append(f"""
-                        <li><strong>{html.escape(input_name)}:</strong> {html.escape(value_str)}</li>""")
+                        html_parts.append(
+                            f"""
+                        <li><strong>{html.escape(input_name)}:</strong> {html.escape(value_str)}</li>"""
+                        )
                     else:
-                        html_parts.append(f"""
-                        <li><strong>{html.escape(input_name)}:</strong> From task {html.escape(input_info['task'])}, output {html.escape(input_info['output'])}</li>""")
-                
-                html_parts.append("""
+                        html_parts.append(
+                            f"""
+                        <li><strong>{html.escape(input_name)}:</strong> From task {html.escape(input_info['task'])}, output {html.escape(input_info['output'])}</li>"""
+                        )
+
+                html_parts.append(
+                    """
                     </ul>
                 </div>
-            </div>""")
-            
-            if task_info.get('outputs'):
-                outputs = task_info['outputs']
-                html_parts.append(f"""
+            </div>"""
+                )
+
+            if task_info.get("outputs"):
+                outputs = task_info["outputs"]
+                html_parts.append(
+                    f"""
             <div class="task-property">
                 <span class="property-name">Outputs:</span> {len(outputs)} items
                 <div class="collapsible">Show/Hide</div>
                 <div class="content">
-                    <ul class="output-list">""")
-                
+                    <ul class="output-list">"""
+                )
+
                 for output_name, output_value in outputs.items():
                     output_str = str(output_value)
                     if len(output_str) > 100:
                         output_str = output_str[:100] + "..."
-                    html_parts.append(f"""
-                        <li><strong>{html.escape(output_name)}:</strong> {html.escape(output_str)}</li>""")
-                
-                html_parts.append("""
+                    html_parts.append(
+                        f"""
+                        <li><strong>{html.escape(output_name)}:</strong> {html.escape(output_str)}</li>"""
+                    )
+
+                html_parts.append(
+                    """
                     </ul>
                 </div>
-            </div>""")
-            
-            html_parts.append("""
-        </div>""")
-        
+            </div>"""
+                )
+
+            html_parts.append(
+                """
+        </div>"""
+            )
+
         return "\n".join(html_parts)

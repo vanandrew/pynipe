@@ -73,6 +73,12 @@ You can also run the hooks manually on all files:
 pre-commit run --all-files
 ```
 
+Note: When pre-commit hooks modify files during a commit, the commit will be aborted. This is expected behavior. You need to stage the modified files and commit again:
+```bash
+git add .
+git commit -m "Your commit message"
+```
+
 ## Testing
 
 - Write unit tests for all new functionality

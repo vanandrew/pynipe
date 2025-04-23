@@ -1,14 +1,9 @@
 """Core components for PyNipe."""
 
-from .task import Task, TaskOutput
 from .context import TaskContext
+from .task import Task, TaskOutput
+from .thread_local import get_current_task, get_current_workflow, set_current_task, set_current_workflow
 from .workflow import Workflow
-from .thread_local import (
-    get_current_workflow,
-    set_current_workflow,
-    get_current_task,
-    set_current_task,
-)
 
 __all__ = [
     "Task",

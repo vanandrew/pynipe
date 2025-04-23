@@ -40,7 +40,7 @@ def process_subject(subject_id, anat_file, output_dir):
         # Create and configure the interface
         bet = fsl.BET()
         ctx.set_interface(bet)
-        
+
         # Configure the interface parameters
         ctx.configure_interface(
             in_file=anat_file,
@@ -48,12 +48,12 @@ def process_subject(subject_id, anat_file, output_dir):
             mask=True,
             frac=0.3
         )
-        
+
         # Get output proxies for later use
         outputs = ctx.get_output_proxy()
         brain_file = outputs.outputs.out_file
         mask_file = outputs.outputs.mask_file
-    
+
     return {
         "brain": brain_file,
         "mask": mask_file

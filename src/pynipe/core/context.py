@@ -1,24 +1,25 @@
 """TaskContext class for PyNipe."""
 
-import time
 import logging
-from typing import Dict, Any, Optional, TypeVar, Generic, cast, Callable, List
+import time
+from collections.abc import Callable
+from typing import Any, TypeVar
 
-from .task import Task, OutputProxy, TaskOutput
+from .task import OutputProxy, Task
 from .thread_local import get_current_workflow, set_current_task
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class TaskContext:
     """Context manager for creating tasks within Python code."""
-    
-    def __init__(self, name: str, resources: Optional[Dict[str, Any]] = None):
+
+    def __init__(self, name: str, resources: dict[str, Any] | None = None):
         """
         Initialize a task context.
-        
+
         Parameters:
         -----------
         name : str
@@ -28,13 +29,13 @@ class TaskContext:
         """
         self.name = name
         self.resources = resources or {}
-        self.task: Optional[Task] = None
-        self.start_time: Optional[float] = None
-        
-    def __enter__(self) -> 'TaskContext':
+        self.task: Task | None = None
+        self.start_time: float | None = None
+
+    def __enter__(self) -> "TaskContext":
         """
         Enter the task context.
-        
+
         Returns:
         --------
         TaskContext
@@ -42,26 +43,26 @@ class TaskContext:
         """
         self.start_time = time.time()
         logger.info(f"Creating task: {self.name}")
-        
+
         # Create actual task
         self.task = Task(self.name, resources=self.resources)
-        
+
         # Register with current workflow
         workflow = get_current_workflow()
-        
+
         # Register with workflow for later scheduling
         if workflow is not None:
             workflow.add_task(self.task)
-            
+
         # Enable dependency tracking by setting thread-local task
         set_current_task(self.task)
-            
+
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         """
         Exit the task context.
-        
+
         Parameters:
         -----------
         exc_type : type
@@ -70,7 +71,7 @@ class TaskContext:
             Exception value if an exception was raised
         exc_tb : traceback
             Exception traceback if an exception was raised
-            
+
         Returns:
         --------
         bool
@@ -78,26 +79,26 @@ class TaskContext:
         """
         if self.task is None:
             return False
-            
+
         # Record end time for context timing
         logger.info(f"Task {self.name} Created")
-        
+
         # Update task status if an exception occurred
         if exc_type:
             self.task.status = "FAILED"
             self.task.error = exc_val
             logger.error(f"Task {self.name} failed: {exc_val}")
-        
+
         # Reset thread-local task
         set_current_task(None)
-        
+
         # Return False to propagate exceptions
         return False
-    
+
     def set_interface(self, interface: Any) -> None:
         """
         Set the nipype interface for this task.
-        
+
         Parameters:
         -----------
         interface : nipype.Interface
@@ -105,13 +106,13 @@ class TaskContext:
         """
         if self.task is None:
             raise ValueError("Task not initialized")
-        
+
         self.task.interface = interface
-    
+
     def configure_interface(self, **kwargs) -> None:
         """
         Configure the interface with input parameters.
-        
+
         Parameters:
         -----------
         **kwargs : dict
@@ -119,13 +120,13 @@ class TaskContext:
         """
         if self.task is None:
             raise ValueError("Task not initialized")
-        
+
         self.task.configure_interface(**kwargs)
-    
-    def set_python_function(self, func: Callable, outputs: List[str], *args, **kwargs) -> None:
+
+    def set_python_function(self, func: Callable, outputs: list[str], *args, **kwargs) -> None:
         """
         Set a Python function to be executed by this task.
-        
+
         Parameters:
         -----------
         func : callable
@@ -139,13 +140,13 @@ class TaskContext:
         """
         if self.task is None:
             raise ValueError("Task not initialized")
-        
+
         self.task.set_python_function(func, outputs, *args, **kwargs)
-    
-    def python_function(self, outputs: List[str], *args, **kwargs) -> Callable[[Callable], Callable]:
+
+    def python_function(self, outputs: list[str], *args, **kwargs) -> Callable[[Callable], Callable]:
         """
         Decorator for registering a Python function to be executed by this task.
-        
+
         Parameters:
         -----------
         outputs : list
@@ -154,12 +155,12 @@ class TaskContext:
             Positional arguments to pass to the function
         **kwargs : dict
             Keyword arguments to pass to the function
-            
+
         Returns:
         --------
         callable
             Decorator function
-        
+
         Example:
         --------
         @ctx.python_function(["output_file"], mask_file, output_file)
@@ -167,17 +168,19 @@ class TaskContext:
             # Function implementation
             return output_file
         """
+
         def decorator(func: Callable) -> Callable:
             # Register the function with the task
             self.set_python_function(func, outputs, *args, **kwargs)
             # Return the original function so it can still be called normally
             return func
+
         return decorator
-    
+
     def get_output_proxy(self) -> OutputProxy:
         """
         Get a proxy for the outputs that will be available after execution.
-        
+
         Returns:
         --------
         OutputProxy
@@ -185,5 +188,5 @@ class TaskContext:
         """
         if self.task is None:
             raise ValueError("Task not initialized")
-        
+
         return self.task.get_output_proxy()

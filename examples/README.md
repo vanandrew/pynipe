@@ -42,7 +42,7 @@ with TaskContext("Brain Extraction") as ctx:
     # Create and configure the interface
     bet = fsl.BET()
     ctx.set_interface(bet)
-    
+
     # Configure the interface parameters
     ctx.configure_interface(
         in_file=anat_file,
@@ -50,7 +50,7 @@ with TaskContext("Brain Extraction") as ctx:
         mask=True,
         frac=0.3
     )
-    
+
     # Get output proxies for later use
     outputs = ctx.get_output_proxy()
     brain_file = outputs.outputs.out_file
