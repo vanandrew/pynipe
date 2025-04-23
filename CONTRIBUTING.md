@@ -25,9 +25,20 @@ Please be respectful and considerate of others when contributing to PyNipe. We a
 
 1. Ensure your code follows the project's style guidelines
 2. Update the README.md or documentation with details of changes if appropriate
-3. The pull request will be reviewed by maintainers
-4. Address any feedback from the review
-5. Once approved, your pull request will be merged
+3. Make sure all CI checks pass
+4. The pull request will be reviewed by maintainers
+5. Address any feedback from the review
+6. Once approved, your pull request will be merged
+
+## Continuous Integration
+
+We use GitHub Actions for continuous integration. The CI pipeline:
+
+1. Runs tests on multiple Python versions
+2. Checks code style with black and ruff
+3. Builds the package to ensure it can be distributed
+
+All pull requests must pass the CI checks before they can be merged.
 
 ## Coding Standards
 
