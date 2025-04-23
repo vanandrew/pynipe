@@ -1,6 +1,6 @@
 # PyNipe
 
-[![CI](https://github.com/vanandrew/pynipe/actions/workflows/tests.yml/badge.svg)](https://github.com/vanandrew/pynipe/actions/workflows/tests.yml)
+[![CI/CD](https://github.com/vanandrew/pynipe/actions/workflows/workflow.yml/badge.svg)](https://github.com/vanandrew/pynipe/actions/workflows/workflow.yml)
 [![Python Versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/vanandrew/pynipe)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
