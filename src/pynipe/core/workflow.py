@@ -3,6 +3,8 @@
 import logging
 from typing import Dict, List, Any, Optional, Callable, Set, Union
 
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
+
 from .task import Task
 from .thread_local import set_current_workflow, set_current_task
 
@@ -95,29 +97,64 @@ class Workflow:
         
         logger.info(f"Running workflow: {self.name}")
         
-        # First pass: execute functions to generate tasks
-        function_results = {}
-        for func_info in self.functions:
-            # Set current workflow for task collection
-            set_current_workflow(self)
+        # Create a progress display
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+        ) as progress:
+            # First pass: execute functions to generate tasks
+            function_results = {}
+            if self.functions:
+                functions_progress = progress.add_task(f"[cyan]Executing functions...", total=len(self.functions))
+                
+                for i, func_info in enumerate(self.functions):
+                    # Set current workflow for task collection
+                    set_current_workflow(self)
+                    
+                    # Update progress description
+                    progress.update(functions_progress, description=f"[cyan]Executing function: {func_info['name']}")
+                    
+                    # Execute function
+                    try:
+                        logger.info(f"Executing function: {func_info['name']}")
+                        result = func_info["function"](**func_info["inputs"])
+                        function_results[func_info["name"]] = result
+                    except Exception as e:
+                        logger.error(f"Function {func_info['name']} failed: {e}")
+                        progress.update(functions_progress, description=f"[red]Function {func_info['name']} failed")
+                        raise
+                    finally:
+                        set_current_workflow(None)
+                    
+                    # Update progress
+                    progress.update(functions_progress, advance=1)
+                
+                # Mark functions as complete
+                progress.update(functions_progress, description="[green]Functions completed")
             
-            # Execute function
-            try:
-                logger.info(f"Executing function: {func_info['name']}")
-                result = func_info["function"](**func_info["inputs"])
-                function_results[func_info["name"]] = result
-            except Exception as e:
-                logger.error(f"Function {func_info['name']} failed: {e}")
-                raise
-            finally:
-                set_current_workflow(None)
-        
-        # Second pass: execute only tasks that haven't been run yet
-        tasks_to_run = [task for task in self.tasks if task.status == "PENDING"]
-        if tasks_to_run:
-            task_results = executor.execute(tasks_to_run)
-        else:
-            task_results = {}
+            # Second pass: execute only tasks that haven't been run yet
+            tasks_to_run = [task for task in self.tasks if task.status == "PENDING"]
+            if tasks_to_run:
+                # Add a task progress for the executor
+                tasks_progress = progress.add_task(f"[cyan]Executing tasks...", total=len(tasks_to_run))
+                
+                # Create a callback for the executor to update progress
+                def progress_callback(task_name, status):
+                    if status == "COMPLETE":
+                        progress.update(tasks_progress, advance=1)
+                        progress.update(tasks_progress, description=f"[cyan]Tasks completed: {progress.tasks[tasks_progress].completed}/{len(tasks_to_run)}")
+                
+                # Execute tasks with progress tracking
+                task_results = executor.execute(tasks_to_run, progress_callback=progress_callback)
+                
+                # Mark tasks as complete
+                progress.update(tasks_progress, description="[green]Tasks completed")
+            else:
+                task_results = {}
         
         # Combine results
         return {

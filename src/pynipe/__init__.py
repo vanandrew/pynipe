@@ -4,7 +4,10 @@ PyNipe: A neuroimaging workflow library that builds upon Nipype's interfaces.
 PyNipe provides a more intuitive and debuggable execution model with support for parallel execution.
 """
 
-__version__ = "0.1.0"
+try:
+    from ._version import version as __version__
+except ImportError:
+    __version__ = "0.0.0+unknown"
 
 from .core.context import TaskContext
 from .core.task import Task, TaskOutput

@@ -2,7 +2,7 @@
 
 import logging
 import concurrent.futures
-from typing import List, Dict, Any, Set, Optional
+from typing import List, Dict, Any, Set, Optional, Callable
 
 from .base import Executor
 from ..core.task import Task
@@ -24,7 +24,7 @@ class LocalExecutor(Executor):
         """
         self.max_workers = max_workers
         
-    def execute(self, tasks: List[Task]) -> Dict[str, Any]:
+    def execute(self, tasks: List[Task], progress_callback: Optional[Callable[[str, str], None]] = None) -> Dict[str, Any]:
         """
         Execute tasks locally with dependency resolution.
         
@@ -32,6 +32,8 @@ class LocalExecutor(Executor):
         -----------
         tasks : list
             List of tasks to execute
+        progress_callback : callable, optional
+            Callback function to report progress. Takes task name and status as arguments.
             
         Returns:
         --------
@@ -74,6 +76,10 @@ class LocalExecutor(Executor):
                         results[task.name] = task_result
                         completed.add(task)
                         logger.info(f"Task {task.name} completed successfully")
+                        
+                        # Call progress callback if provided
+                        if progress_callback:
+                            progress_callback(task.name, "COMPLETE")
                     except Exception as e:
                         logger.error(f"Task {task.name} failed: {e}")
                         raise

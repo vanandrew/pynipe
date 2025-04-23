@@ -1,7 +1,7 @@
 """Serial executor for sequential execution."""
 
 import logging
-from typing import List, Dict, Any, Set, Optional
+from typing import List, Dict, Any, Set, Optional, Callable
 
 from .base import Executor
 from ..core.task import Task
@@ -16,7 +16,7 @@ class SerialExecutor(Executor):
         """Initialize serial executor."""
         pass
         
-    def execute(self, tasks: List[Task]) -> Dict[str, Any]:
+    def execute(self, tasks: List[Task], progress_callback: Optional[Callable[[str, str], None]] = None) -> Dict[str, Any]:
         """
         Execute tasks sequentially with dependency resolution.
         
@@ -24,6 +24,8 @@ class SerialExecutor(Executor):
         -----------
         tasks : list
             List of tasks to execute
+        progress_callback : callable, optional
+            Callback function to report progress. Takes task name and status as arguments.
             
         Returns:
         --------
@@ -56,6 +58,10 @@ class SerialExecutor(Executor):
                 completed.add(task)
                 pending.remove(task)
                 logger.info(f"Task {task.name} completed successfully")
+                
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_callback(task.name, "COMPLETE")
             except Exception as e:
                 logger.error(f"Task {task.name} failed: {e}")
                 raise

@@ -113,6 +113,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Generated version file
+src/pynipe/_version.py
+
 # PyCharm
 .idea/
 
