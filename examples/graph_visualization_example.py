@@ -37,7 +37,7 @@ def process_with_dependencies(output_dir):
         Processing results
     """
     # Create a dummy input file
-    input_file = os.path.join(output_dir, "input.nii.gz")
+    input_file = "/Users/andrew.van/Data/temp/sub-PFM03_ses-01_run-01_desc-preproc_T1w.nii.gz"
     
     # Task 1: Brain extraction
     with TaskContext("Brain Extraction") as ctx:

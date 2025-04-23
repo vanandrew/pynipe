@@ -238,7 +238,8 @@ class ExecutionGraph:
                     'status': 'COMPLETE',  # Default status
                     'elapsed_time': None,
                     'command': None,
-                    'outputs': outputs
+                    'outputs': outputs,
+                    'inputs': {}  # Add inputs dictionary
                 }
                 
                 # Add additional info if task object is available
@@ -251,6 +252,23 @@ class ExecutionGraph:
                     task_deps = getattr(task_obj, 'dependencies', set())
                     dep_names = {dep.name for dep in task_deps if hasattr(dep, 'name')}
                     dependencies[task_name] = dep_names
+                    
+                    # Extract inputs
+                    from ..core.task import TaskOutput
+                    for input_name, input_value in getattr(task_obj, 'inputs', {}).items():
+                        if isinstance(input_value, TaskOutput):
+                            # This is a dependency input (already shown as an edge)
+                            task_info['inputs'][input_name] = {
+                                'type': 'task_output',
+                                'task': input_value.task.name,
+                                'output': input_value.output_name
+                            }
+                        else:
+                            # This is an external input
+                            task_info['inputs'][input_name] = {
+                                'type': 'external',
+                                'value': str(input_value)
+                            }
                 else:
                     dependencies[task_name] = set()
                 
@@ -286,6 +304,7 @@ class ExecutionGraph:
         lines.append("    classDef pending fill:#fff3cd,stroke:#ffc107,color:#856404")
         lines.append("    classDef running fill:#cce5ff,stroke:#007bff,color:#004085")
         lines.append("    classDef noTasks fill:#f8f9fa,stroke:#6c757d,color:#6c757d")
+        lines.append("    classDef input fill:#e2f0fb,stroke:#0d6efd,color:#0d6efd")
         
         # Add nodes for each task
         lines.append("\n    %% Task nodes")
@@ -303,6 +322,8 @@ class ExecutionGraph:
             
             # Add node definition
             lines.append(f"    {node_id}[\"{label}\"]:::{task_info['status'].lower()}")
+        
+        # Input nodes removed as per user request - inputs are only shown in the sidebar
         
         # Add edges for dependencies
         if dependencies:
@@ -361,6 +382,32 @@ class ExecutionGraph:
                 <div class="collapsible">Show/Hide</div>
                 <div class="content">
                     <pre>{html.escape(task_info['command'])}</pre>
+                </div>
+            </div>""")
+            
+            # Add inputs section
+            if task_info.get('inputs'):
+                inputs = task_info['inputs']
+                html_parts.append(f"""
+            <div class="task-property">
+                <span class="property-name">Inputs:</span> {len(inputs)} items
+                <div class="collapsible">Show/Hide</div>
+                <div class="content">
+                    <ul class="output-list">""")
+                
+                for input_name, input_info in inputs.items():
+                    if input_info['type'] == 'external':
+                        value_str = input_info['value']
+                        if len(value_str) > 100:
+                            value_str = value_str[:100] + "..."
+                        html_parts.append(f"""
+                        <li><strong>{html.escape(input_name)}:</strong> {html.escape(value_str)}</li>""")
+                    else:
+                        html_parts.append(f"""
+                        <li><strong>{html.escape(input_name)}:</strong> From task {html.escape(input_info['task'])}, output {html.escape(input_info['output'])}</li>""")
+                
+                html_parts.append("""
+                    </ul>
                 </div>
             </div>""")
             
