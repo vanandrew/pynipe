@@ -104,7 +104,8 @@ def preprocess_structural(subject_id, anat_file, output_dir):
     volume_report_file = os.path.join(subject_dir, f"{subject_id}_brain_volume.txt")
     
     with TaskContext("Calculate Brain Volume") as ctx:
-        # Define the function that will be executed by the executor
+        # Using the new decorator syntax for Python functions
+        @ctx.python_function(["output_file"], thresholded_mask, volume_report_file)
         def calculate_brain_volume(mask_file, output_file):
             """Calculate brain volume from a binary mask."""
             # Load the mask file
@@ -131,14 +132,6 @@ def preprocess_structural(subject_id, anat_file, output_dir):
             
             return output_file
         
-        # Set the Python function to be executed by this task
-        ctx.set_python_function(
-            calculate_brain_volume,  # Function to execute
-            ["output_file"],         # Output names
-            thresholded_mask,        # First argument (mask_file)
-            volume_report_file       # Second argument (output_file)
-        )
-        
         # Get output proxy
         outputs = ctx.get_output_proxy()
         volume_report = outputs.outputs.output_file  # type: ignore
@@ -160,9 +153,9 @@ def main():
     # Define subjects
     # Note: In a real scenario, you would use actual data files
     subjects = [
-        {"id": "sub-01", "anat": "/Users/andrew.van/Data/temp/sub-PFM03_ses-01_run-01_desc-preproc_T1w.nii.gz"},
-        # {"id": "sub-02", "anat": "/path/to/sub-02/anat.nii.gz"},
-        # {"id": "sub-03", "anat": "/path/to/sub-03/anat.nii.gz"},
+        {"id": "sub-01", "anat": "/path/to/sub-01/anat.nii.gz"},
+        {"id": "sub-02", "anat": "/path/to/sub-02/anat.nii.gz"},
+        {"id": "sub-03", "anat": "/path/to/sub-03/anat.nii.gz"},
     ]
     
     # Add processing for each subject

@@ -122,7 +122,8 @@ class Workflow:
         # Combine results
         return {
             "functions": function_results,
-            "tasks": task_results
+            "tasks": task_results,
+            "workflow": self  # Include the workflow object for access to tasks and dependencies
         }
         
     def to_airflow(self, dag_file: str, schedule: Optional[str] = None, default_args: Optional[Dict[str, Any]] = None) -> None:

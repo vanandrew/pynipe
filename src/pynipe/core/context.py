@@ -142,6 +142,38 @@ class TaskContext:
         
         self.task.set_python_function(func, outputs, *args, **kwargs)
     
+    def python_function(self, outputs: List[str], *args, **kwargs) -> Callable[[Callable], Callable]:
+        """
+        Decorator for registering a Python function to be executed by this task.
+        
+        Parameters:
+        -----------
+        outputs : list
+            List of output names that will be produced by the function
+        *args : tuple
+            Positional arguments to pass to the function
+        **kwargs : dict
+            Keyword arguments to pass to the function
+            
+        Returns:
+        --------
+        callable
+            Decorator function
+        
+        Example:
+        --------
+        @ctx.python_function(["output_file"], mask_file, output_file)
+        def calculate_brain_volume(mask_file, output_file):
+            # Function implementation
+            return output_file
+        """
+        def decorator(func: Callable) -> Callable:
+            # Register the function with the task
+            self.set_python_function(func, outputs, *args, **kwargs)
+            # Return the original function so it can still be called normally
+            return func
+        return decorator
+    
     def get_output_proxy(self) -> OutputProxy:
         """
         Get a proxy for the outputs that will be available after execution.
